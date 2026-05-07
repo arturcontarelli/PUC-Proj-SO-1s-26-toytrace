@@ -52,8 +52,20 @@ static pid_t launch_tracee(char *const argv[])
      *
      * Em erro, imprima uma mensagem com perror() e retorne -1.
      */
-    fprintf(stderr, "erro: TODO Semana 2: implementar launch_tracee()\n");
-    return -1;
+
+/*     pid_t pid = fork();
+ 
+    if (pid == 0) {
+        ptrace(PTRACE_TRACEME, 0, NULL, NULL);
+        raise(SIGSTOP);
+        execvp(argv[0], argv);
+        perror("execvp");
+        return -1;
+    }
+    return pid; */
+
+     fprintf(stderr, "erro: TODO Semana 2: implementar launch_tracee()\n");
+     return -1; 
 }
 
 static int wait_for_initial_stop(pid_t child)
@@ -131,7 +143,7 @@ int trace_program(char *const argv[],
         return -1;
     }
 
-    child = launch_tracee(argv);
+    child = launch_tracee(argv); //função que cria o processo alvo e armazena o pid em child
     if (child < 0) {
         return -1;
     }
