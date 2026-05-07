@@ -171,7 +171,7 @@ int trace_program(char *const argv[],
         return -1;
     }
 
-    child = launch_tracee(argv);
+    child = launch_tracee(argv); //função que cria o processo alvo e armazena o pid em child
     if (child < 0) {
         return -1;
     }

@@ -6,7 +6,7 @@
 
 struct trace_state {
     int raw_events;
-    struct syscall_pairer pairer;
+    struct syscall_pairer pairer; //syscall_pairer é usado para parear os eventos de entrada e saída de uma syscall, e os retorna como um único evento completo
 };
 
 static void trace_observer(const struct syscall_event *ev, void *userdata)
@@ -46,6 +46,6 @@ int main(int argc, char **argv)
     }
 
     state.raw_events = opts.raw_events;
-    rc = trace_program(opts.target_argv, trace_observer, &state);
-    return rc < 0 ? 1 : rc;
+    rc = trace_program(opts.target_argv, trace_observer, &state); //roda o trace e armazena o retorno em rc
+    return rc < 0 ? 1 : rc; 
 }
