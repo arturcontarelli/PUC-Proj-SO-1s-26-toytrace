@@ -52,20 +52,35 @@ static pid_t launch_tracee(char *const argv[])
      *
      * Em erro, imprima uma mensagem com perror() e retorne -1.
      */
-
-/*     pid_t pid = fork();
- 
-    if (pid == 0) {
-        ptrace(PTRACE_TRACEME, 0, NULL, NULL);
-        raise(SIGSTOP);
-        execvp(argv[0], argv);
-        perror("execvp");
+    pid_t pid = fork();
+    //Verificação de erro na criação do processo filho
+    if (pid < 0) {
+        perror("erro ao criar processo com fork");
         return -1;
     }
-    return pid; */
 
-     fprintf(stderr, "erro: TODO Semana 2: implementar launch_tracee()\n");
-     return -1; 
+    // Fluxo do filho
+    if (pid == 0) {
+        if (ptrace(PTRACE_TRACEME, 0, NULL, NULL) < 0) {
+            perror("erro no ptrace(PTRACE_TRACEME)");
+            exit(EXIT_FAILURE); 
+        }
+
+        // Para a própria execução para o pai configurar o trace
+        if (raise(SIGSTOP) != 0) {
+            perror("erro ao enviar SIGSTOP");
+            exit(EXIT_FAILURE);
+        }
+
+        execvp(argv[0], argv);
+
+        /* execvp só retorna se der erro */
+        perror("erro no execvp");
+        exit(EXIT_FAILURE);
+    }
+
+    // Fluxo do pai, só retorna o pid do filho
+    return pid;
 }
 
 static int wait_for_initial_stop(pid_t child)
@@ -78,7 +93,20 @@ static int wait_for_initial_stop(pid_t child)
      *
      * Retorne 0 se o filho parou como esperado, -1 em erro.
      */
-    fprintf(stderr, "erro: TODO Semana 2: implementar wait_for_initial_stop()\n");
+    int status;
+
+    //O pai espera por qualquer mudança de estado do processo filho
+    if (waitpid(child, &status, 0) < 0) {
+        perror("erro no waitpid");
+        return -1;
+    }
+
+    // Verifica se o motivo do retorno do waitpid foi uma parada (SIGSTOP)
+    if (WIFSTOPPED(status)) {
+        return 0; // o filho parou como esperado antes do execvp
+    }
+    
+    fprintf(stderr, "erro: processo filho nao parou no SIGSTOP inicial\n");
     return -1;
 }
 
