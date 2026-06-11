@@ -33,6 +33,16 @@ static void fill_event_from_regs(pid_t pid,
     memset(ev, 0, sizeof(*ev));
     ev->pid = pid;
     ev->entering = entering;
+    
+    ev->syscall_no = regs->orig_rax;
+    ev->ret = regs->rax;
+    
+    ev->args[0] = regs->rdi;
+    ev->args[1] = regs->rsi;
+    ev->args[2] = regs->rdx;
+    ev->args[3] = regs->r10;
+    ev->args[4] = regs->r8;
+    ev->args[5] = regs->r9;
 }
 
 static pid_t launch_tracee(char *const argv[])
@@ -149,7 +159,7 @@ static int resume_until_next_syscall(pid_t child, int signal_to_deliver)
 static int wait_for_syscall_stop(pid_t child, int *status)
 {
     /*
-     * TODO Semana 3:
+     * TODO Semana 3(Feito):
      *
      * Espere o filho com waitpid().
      *
@@ -177,15 +187,16 @@ static int wait_for_syscall_stop(pid_t child, int *status)
         if (WIFSTOPPED(*status)) {
             int sig = WSTOPSIG(*status);
 
-            if (sig & 0x80) {
+            printf("Processo parou com sinal %d\n", sig);
+
+            if ((sig & 0x80) || (sig == SIGTRAP)) {
                 return 1;
             }
 
-            // Se não for syscall, precisamos mandar o processo continuar.A especificação diz que paradas comuns de SIGTRAP não devem ser repassadas, mas outros sinais sim.
-            int signal_to_deliver = 0;
-            if (sig != SIGTRAP) {
-                signal_to_deliver = sig; 
-            }
+            // Se não for syscall, precisamos mandar o processo continuar.
+            // A especificação diz que paradas comuns de SIGTRAP não devem ser repassadas, mas 
+            // outros sinais sim. Como tratamos SIGTRAP acima, signal_to_deliver = sig.
+            int signal_to_deliver = sig;
 
             if (ptrace(PTRACE_SYSCALL, child, NULL, signal_to_deliver) < 0) {
                 perror("erro no ptrace(PTRACE_SYSCALL) ignorando sinal");
@@ -251,7 +262,14 @@ int trace_program(char *const argv[],
          * Depois chame fill_event_from_regs() e observer().
          */
         memset(&regs, 0, sizeof(regs));
+        
+        if (ptrace(PTRACE_GETREGS, child, NULL, &regs) < 0) {
+            perror("erro no ptrace(PTRACE_GETREGS)");
+            return -1;
+        }
+
         fill_event_from_regs(child, entering, &regs, &ev);
+        
         if (observer != NULL) {
             observer(&ev, userdata);
         }

@@ -29,10 +29,27 @@ void student_debug_raw_event(const struct syscall_event *ev,
      * A pergunta importante da Semana 4 e:
      * por que a mesma syscall aparece duas vezes?
      */
-    snprintf(buf, bufsz, "pid=%d %s %s",
-             ev->pid,
-             syscall_name(ev->syscall_no),
-             ev->entering ? "entrada" : "saida");
+
+     /*
+     * Implementação do experimento sugerido para a Semana 4:
+     * O kernel gera duas paradas para uma mesma syscall. A lógica abaixo separa
+     * a formatação para provar esse comportamento. Na ENTRADA (entering == 1), 
+     * o kernel ainda não executou a chamada, então mostramos os registradores 
+     * de argumentos. Na SAÍDA (entering == 0), a chamada terminou, então 
+     * ignoramos os argumentos e mostramos apenas o valor de retorno (ret).
+     */
+    if (ev->entering) {
+        snprintf(buf, bufsz, "pid=%d %s entrada (args: %#lx, %#lx, %#lx, %#lx, %#lx, %#lx)",
+                 ev->pid,
+                 syscall_name(ev->syscall_no),
+                 ev->args[0], ev->args[1], ev->args[2],
+                 ev->args[3], ev->args[4], ev->args[5]);
+    } else {
+        snprintf(buf, bufsz, "pid=%d %s saida (retorno: %ld)",
+                 ev->pid,
+                 syscall_name(ev->syscall_no),
+                 ev->ret);
+    }
 }
 
 void student_format_event(const struct syscall_event *ev,
