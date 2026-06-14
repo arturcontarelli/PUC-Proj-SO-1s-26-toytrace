@@ -189,14 +189,17 @@ static int wait_for_syscall_stop(pid_t child, int *status)
 
             printf("Processo parou com sinal %d\n", sig);
 
-            if ((sig & 0x80) || (sig == SIGTRAP)) {
+            if (sig & 0x80) {
                 return 1;
             }
 
             // Se não for syscall, precisamos mandar o processo continuar.
             // A especificação diz que paradas comuns de SIGTRAP não devem ser repassadas, mas 
-            // outros sinais sim. Como tratamos SIGTRAP acima, signal_to_deliver = sig.
-            int signal_to_deliver = sig;
+            // outros sinais sim.
+            int signal_to_deliver = 0;
+            if (sig != SIGTRAP) {
+                signal_to_deliver = sig;
+            }
 
             if (ptrace(PTRACE_SYSCALL, child, NULL, signal_to_deliver) < 0) {
                 perror("erro no ptrace(PTRACE_SYSCALL) ignorando sinal");
