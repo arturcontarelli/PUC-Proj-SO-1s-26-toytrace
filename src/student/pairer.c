@@ -1,32 +1,35 @@
 #include "student_api.h"
+#include "trace_helpers.h"
+#include <sys/syscall.h>
+
+char saved_execve_path[256] = "";
 
 int student_pair_syscall(struct syscall_pairer *pairer,
                          const struct syscall_event *ev,
                          struct syscall_event *out)
 {
-    /*
-     * TODO Semana 5:
-     *
-     * O runtime chama esta funcao duas vezes para cada syscall:
-     *
-     *   1. uma vez antes da syscall executar
-     *   2. uma vez depois da syscall terminar
-     *
-     * Na primeira parada, os argumentos estao disponiveis.
-     * Na segunda parada, o retorno esta disponivel.
-     *
-     * Seu trabalho e produzir um evento completo apenas quando ja existirem
-     * as duas metades da syscall.
-     *
-     * Dicas:
-     * - ev->entering == 1 indica entrada de syscall.
-     * - ev->entering == 0 indica saida de syscall.
-     * - para comecar, assuma apenas um processo monitorado.
-     *
-     * Retorne:
-     *   1 se out contem uma syscall completa
-     *   0 se ainda nao ha syscall completa
-     *  -1 se a sequencia de eventos parece invalida
-     */
-    return 0;
+    if (ev->entering) {
+        if (pairer->has_entry) {
+            return -1; // Dessincronização
+        }
+
+        if (ev->syscall_no == SYS_execve) {
+            if (read_child_string(ev->pid, ev->args[0], saved_execve_path, sizeof(saved_execve_path)) < 0) {
+                saved_execve_path[0] = '\0';
+            }
+        }
+
+        pairer->entry = *ev;
+        pairer->has_entry = 1;
+        return 0; // Evento incompleto
+    } else {
+        if (!pairer->has_entry) {
+            return -1; // Dessincronização
+        }
+        *out = pairer->entry;
+        out->ret = ev->ret;
+        out->entering = 0;
+        pairer->has_entry = 0;
+        return 1; // Syscall completa
+    }
 }

@@ -19,17 +19,7 @@ static void fill_event_from_regs(pid_t pid,
                                  const struct user_regs_struct *regs,
                                  struct syscall_event *ev)
 {
-    /*
-     * TODO Semana 4:
-     *
-     * Preencha struct syscall_event usando os registradores x86_64.
-     *
-     * Dicas:
-     * - regs->orig_rax contem o numero da syscall.
-     * - regs->rax contem o retorno, valido na saida.
-     * - os seis argumentos ficam em rdi, rsi, rdx, r10, r8 e r9.
-     * - ev->entering deve copiar o parametro entering.
-     */
+
     memset(ev, 0, sizeof(*ev));
     ev->pid = pid;
     ev->entering = entering;
@@ -47,22 +37,7 @@ static void fill_event_from_regs(pid_t pid,
 
 static pid_t launch_tracee(char *const argv[])
 {
-    /*
-     * TODO Semana 2(Feito):
-     *
-     * Crie o processo monitorado.
-     *
-     * Fluxo esperado:
-     * - fork()
-     * - no filho:
-     *   - ptrace(PTRACE_TRACEME, ...)
-     *   - raise(SIGSTOP)
-     *   - execvp(argv[0], argv)
-     * - no pai:
-     *   - retornar o pid do filho
-     *
-     * Em erro, imprima uma mensagem com perror() e retorne -1.
-     */
+
     pid_t pid = fork();
     //Verificação de erro na criação do processo filho
     if (pid < 0) {
@@ -96,14 +71,7 @@ static pid_t launch_tracee(char *const argv[])
 
 static int wait_for_initial_stop(pid_t child)
 {
-    /*
-     * TODO Semana 2(Feito):
-     *
-     * O filho chama raise(SIGSTOP) antes de executar o programa alvo.
-     * O pai precisa esperar essa parada inicial com waitpid().
-     *
-     * Retorne 0 se o filho parou como esperado, -1 em erro.
-     */
+
     int status;
 
     //O pai espera por qualquer mudança de estado do processo filho
@@ -123,12 +91,7 @@ static int wait_for_initial_stop(pid_t child)
 
 static int configure_trace_options(pid_t child)
 {
-    /*
-     * TODO Semana 3(Feito):
-     *
-     * Configure PTRACE_O_TRACESYSGOOD com PTRACE_SETOPTIONS.
-     * Isso ajuda a diferenciar paradas de syscall de outros sinais.
-     */
+
     if (ptrace(PTRACE_SETOPTIONS, child, NULL, PTRACE_O_TRACESYSGOOD) < 0) {
         perror("erro no ptrace(PTRACE_SETOPTIONS)");
         return -1;
@@ -139,14 +102,7 @@ static int configure_trace_options(pid_t child)
 
 static int resume_until_next_syscall(pid_t child, int signal_to_deliver)
 {
-    /*
-     * TODO Semana 3(Feito):
-     *
-     * Use ptrace(PTRACE_SYSCALL, ...) para deixar o filho executar ate a
-     * proxima entrada ou saida de syscall.
-     *
-     * signal_to_deliver deve ser repassado como quarto argumento do ptrace.
-     */
+
     // faz o filho rodar até entrar ou sair de uma syscall
     if (ptrace(PTRACE_SYSCALL, child, NULL, signal_to_deliver) < 0) {
         perror("erro no ptrace(PTRACE_SYSCALL)");
@@ -158,22 +114,7 @@ static int resume_until_next_syscall(pid_t child, int signal_to_deliver)
 
 static int wait_for_syscall_stop(pid_t child, int *status)
 {
-    /*
-     * TODO Semana 3(Feito):
-     *
-     * Espere o filho com waitpid().
-     *
-     * Retorne:
-     *   1 se a parada foi uma parada de syscall;
-     *   0 se o filho terminou normalmente ou por sinal;
-     *  -1 em erro.
-     *
-     * Dicas:
-     * - WIFEXITED e WIFSIGNALED indicam fim do processo.
-     * - WIFSTOPPED indica que o processo parou.
-     * - com PTRACE_O_TRACESYSGOOD, syscall-stops aparecem com bit 0x80.
-     * - paradas SIGTRAP comuns nao devem ser entregues de volta ao filho.
-     */
+
     while (1) {
         if (waitpid(child, status, 0) < 0) {
             perror("erro no waitpid");
@@ -187,16 +128,17 @@ static int wait_for_syscall_stop(pid_t child, int *status)
         if (WIFSTOPPED(*status)) {
             int sig = WSTOPSIG(*status);
 
-            printf("Processo parou com sinal %d\n", sig);
-
-            if ((sig & 0x80) || (sig == SIGTRAP)) {
+            if (sig & 0x80) {
                 return 1;
             }
 
             // Se não for syscall, precisamos mandar o processo continuar.
             // A especificação diz que paradas comuns de SIGTRAP não devem ser repassadas, mas 
-            // outros sinais sim. Como tratamos SIGTRAP acima, signal_to_deliver = sig.
-            int signal_to_deliver = sig;
+            // outros sinais sim.
+            int signal_to_deliver = 0;
+            if (sig != SIGTRAP) {
+                signal_to_deliver = sig;
+            }
 
             if (ptrace(PTRACE_SYSCALL, child, NULL, signal_to_deliver) < 0) {
                 perror("erro no ptrace(PTRACE_SYSCALL) ignorando sinal");
@@ -255,12 +197,7 @@ int trace_program(char *const argv[],
             return 0;
         }
 
-        /*
-         * TODO Semana 4:
-         *
-         * Use PTRACE_GETREGS para preencher regs.
-         * Depois chame fill_event_from_regs() e observer().
-         */
+
         memset(&regs, 0, sizeof(regs));
         
         if (ptrace(PTRACE_GETREGS, child, NULL, &regs) < 0) {
